@@ -118,7 +118,7 @@ function listenToProgress() {
   }
 
   console.log('Listening for progress updates...') // Debugging statement
-  eventSource = new EventSource('http://localhost:3000/progress')
+  eventSource = new EventSource('http://localhost:5197/progress')
 
   eventSource.onmessage = (event) => {
     const data = JSON.parse(event.data)
@@ -174,7 +174,7 @@ document
     console.log('Form submitted. Sending data to server...') // Debugging statement
     listenToProgress() // Start listening for progress before the server processes
 
-    fetch('http://localhost:3000/send-messages', {
+    fetch('http://localhost:5197/send-messages', {
       method: 'POST',
       body: formData,
     })
