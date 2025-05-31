@@ -118,7 +118,7 @@ function listenToProgress() {
   }
 
   console.log('Listening for progress updates...') // Debugging statement
-  eventSource = new EventSource('http://localhost:/progress')
+  eventSource = new EventSource('https://whatsapp-sender-mcxa.onrender.com/progress')
 
   eventSource.onmessage = (event) => {
     const data = JSON.parse(event.data)
@@ -174,7 +174,7 @@ document
     console.log('Form submitted. Sending data to server...') // Debugging statement
     listenToProgress() // Start listening for progress before the server processes
 
-    fetch('http://localhost:/send-messages', {
+    fetch('https://whatsapp-sender-mcxa.onrender.com/send-messages', {
       method: 'POST',
       body: formData,
     })
