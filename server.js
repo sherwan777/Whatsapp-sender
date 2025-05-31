@@ -475,6 +475,8 @@ app.get('/progress', (req, res) => {
     res.end()
   })
 })
+let whatsappClient = null;
+let isClientReady = false;
 
 // Function to initialize and process a batch
 const initializeClientAndProcessBatch = async (
@@ -485,117 +487,109 @@ const initializeClientAndProcessBatch = async (
   messageTemplate
 ) => {
   return new Promise((resolve, reject) => {
-    const client = new Client({
-      authStrategy: new LocalAuth(),
-    })
+    if (!whatsappClient) {
+      whatsappClient = new Client({
+        authStrategy: new LocalAuth(),
+      });
 
-    client.on('qr', async (qr) => {
-      const qrImage = await QRCode.toDataURL(qr)
-      progressEmitter.emit('update', { status: 'qr', qrImage })
-    })
+      whatsappClient.on('qr', async (qr) => {
+        const qrImage = await QRCode.toDataURL(qr);
+        progressEmitter.emit('update', { status: 'qr', qrImage });
+      });
 
-    client.on('ready', async () => {
-      progressEmitter.emit('update', {
-        status: 'ready',
-        message: 'WhatsApp client is ready!',
-      })
+      whatsappClient.on('ready', async () => {
+        isClientReady = true;
+        progressEmitter.emit('update', {
+          status: 'ready',
+          message: 'WhatsApp client is ready!',
+        });
+      });
 
+      whatsappClient.on('auth_failure', (error) => {
+        isClientReady = false;
+        whatsappClient = null;
+        progressEmitter.emit('update', {
+          status: 'error',
+          message: 'Authentication failed. Please try again.',
+        });
+        reject(error);
+      });
+
+      whatsappClient.on('disconnected', () => {
+        isClientReady = false;
+        whatsappClient = null;
+        progressEmitter.emit('update', {
+          status: 'error',
+          message: 'WhatsApp client disconnected.',
+        });
+        reject(new Error('WhatsApp client disconnected.'));
+      });
+
+      whatsappClient.initialize();
+    }
+
+    const waitUntilReady = async () => {
+      while (!isClientReady) {
+        await delay(1000);
+      }
+    };
+
+    (async () => {
       try {
-        const workbook = XLSX.readFile(filePath)
-        const sheetName = workbook.SheetNames[0]
-        const sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
+        await waitUntilReady();
+
+        const workbook = XLSX.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
         for (const [index, contact] of sheet.entries()) {
           const phoneNumber = `${(contact[mobileColumn] || '')
             .toString()
-            .replace(/[^\d]/g, '')}@c.us`
-
-          console.log(
-            `Processing row ${index + 1}: Phone Number - ${phoneNumber}`
-          ) // Debugging statement
-
-          if (!phoneNumber.includes('@c.us')) {
-            progressEmitter.emit('update', {
-              status: 'error',
-              message: `Invalid phone number at row ${index + 1}`,
-            })
-            console.error(`Invalid phone number at row ${index + 1}`) // Debugging statement
-            continue
-          }
+            .replace(/[^\d]/g, '')}@c.us`;
 
           const message = replacePlaceholders(
             messageTemplate,
             contact,
             dynamicColumnsMap
-          )
+          );
 
           try {
             if (imageFile) {
-              const media = MessageMedia.fromFilePath(imageFile)
-              await client.sendMessage(phoneNumber, media, {
+              const media = MessageMedia.fromFilePath(imageFile);
+              await whatsappClient.sendMessage(phoneNumber, media, {
                 caption: message || undefined,
-              })
+              });
             } else if (message) {
-              await client.sendMessage(phoneNumber, message)
+              await whatsappClient.sendMessage(phoneNumber, message);
             }
 
             progressEmitter.emit('update', {
               status: 'progress',
               message: `Message sent to ${contact[mobileColumn]}`,
-            })
-            console.log(`Message sent to ${contact[mobileColumn]}`) // Debugging statement
+            });
           } catch (error) {
             progressEmitter.emit('update', {
               status: 'error',
               message: `Failed to send message to ${contact[mobileColumn]}: ${error.message}`,
-            })
-            console.error(
-              `Failed to send message to ${contact[mobileColumn]}: ${error.message}`
-            ) // Debugging statement
+            });
           }
 
-          await delay(8000)
+          await delay(8000);
         }
 
         progressEmitter.emit('update', {
           status: 'success',
           message: 'All messages sent successfully!',
-        })
-        console.log('All messages sent successfully!') // Debugging statement
-        resolve()
+        });
+
+        resolve();
       } catch (error) {
-        progressEmitter.emit('update', {
-          status: 'error',
-          message: `Batch processing failed: ${error.message}`,
-        })
-        console.error(`Batch processing failed: ${error.message}`) // Debugging statement
-        reject(error)
-      } finally {
-        client.destroy()
+        reject(error);
       }
-    })
+    })();
+  });
+};
 
-    client.on('auth_failure', (error) => {
-      progressEmitter.emit('update', {
-        status: 'error',
-        message: 'Authentication failed. Please try again.',
-      })
-      console.error('Authentication failed:', error) // Debugging statement
-      reject(error)
-    })
-
-    client.on('disconnected', () => {
-      progressEmitter.emit('update', {
-        status: 'error',
-        message: 'WhatsApp client disconnected.',
-      })
-      console.error('WhatsApp client disconnected') // Debugging statement
-      reject(new Error('WhatsApp client disconnected.'))
-    })
-
-    client.initialize()
-  })
-}
 
 // Endpoint to handle form submission and file upload
 app.post(
