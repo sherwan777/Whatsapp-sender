@@ -1,0 +1,212 @@
+/* Define color variables */
+:root {
+    --bg-color: #f4f4f4;
+    --text-color: #333;
+    --container-bg-color: white;
+    --input-bg-color: #f9f9f9;
+    --input-border-color: #ccc;
+    --focus-border-color: #28a745;
+    --button-bg-color: #28a745;
+    --button-hover-bg-color: #218838;
+    --status-error-color: red;
+    --status-success-color: green;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    min-height: 100vh;
+    flex-direction: column; /* Stack the elements vertically */
+    gap: 20px; /* Add spacing between the elements */
+}
+
+.container {
+    max-width: 600px;
+    width: 100%; /* Make it responsive */
+    margin: 0 auto;
+    padding: 25px;
+    background-color: var(--container-bg-color);
+    border-radius: 10px;
+    box-shadow: 0px 4px 12px var(--shadow-color);
+}
+
+h2 {
+    text-align: center;
+    font-weight: 600;
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: var(--text-color);
+}
+
+input[type="file"],
+input[type="text"],
+textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid var(--input-border-color);
+    border-radius: 4px;
+    background-color: var(--input-bg-color);
+    color: var(--text-color);
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+input:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--focus-border-color);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+button {
+    padding: 10px;
+    background-color: var(--button-bg-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+button:hover {
+    background-color: var(--button-hover-bg-color);
+}
+
+/* Status container (message counter) */
+#status-counter {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    width: 100%;
+    color: var(--text-color);
+}
+
+/* Scrollable status messages */
+.status-scrollable {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--input-border-color);
+    padding: 10px;
+    background-color: var(--input-bg-color);
+    margin-top: 20px;
+    font-size: 14px;
+    border-radius: 5px;
+    color: var(--text-color);
+}
+
+/* Preview message container */
+.preview {
+    position: fixed; /* Fixed positioning on the page */
+    top: 50%; /* Center vertically */
+    right: 20px; /* Keep it 20px from the right edge */
+    transform: translateY(-50%); /* Adjust for vertical centering */
+    width: 300px; /* Set a fixed width */
+    background: var(--container-bg-color);
+    padding: 20px;
+    box-shadow: 0px 4px 6px var(--shadow-color);
+    border-radius: 10px;
+    z-index: 1000;
+    text-align: center; /* Align content in the center */
+}
+
+.preview h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: var(--text-color);
+}
+
+.preview-message {
+    white-space: pre-wrap; /* Preserves line breaks */
+    font-size: 14px;
+    color: var(--text-color);
+    word-wrap: break-word;
+    text-align: left; /* Align text to the left */
+}
+
+/* Dark mode styles */
+body.dark {
+    --bg-color: #202124;
+    --text-color: #e8eaed;
+    --container-bg-color: #303134;
+    --input-bg-color: #3c4043;
+    --input-border-color: #5f6368;
+    --focus-border-color: #8ab4f8;
+    --button-bg-color: #8ab4f8;
+    --button-hover-bg-color: #6c9ef1;
+    --shadow-color: rgba(0, 0, 0, 0.6);
+}
+
+/* Dark mode toggle button */
+#darkModeToggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: transparent;
+    color: var(--button-bg-color);
+    border: 2px solid var(--button-bg-color);
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#darkModeToggle:hover {
+    background-color: var(--button-bg-color);
+    color: white;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        width: 100%;
+        padding: 15px;
+    }
+
+    h2 {
+        font-size: 20px;
+    }
+
+    input, textarea {
+        font-size: 12px;
+    }
+
+    button {
+        font-size: 12px;
+    }
+
+    .preview {
+        position: static;
+        margin: 20px auto;
+        transform: none;
+    }
+}
+
+#imagePreview {
+    border: 1px solid var(--input-border-color);
+    border-radius: 4px;
+    margin-top: 10px;
+  }
