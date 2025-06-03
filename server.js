@@ -1192,12 +1192,13 @@ app.listen(PORT, '0.0.0.0', () => {
 import express from 'express';
 import multer from 'multer';
 import mime from 'mime-types';
-import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
 import xlsx from 'xlsx';
 import QRCode from 'qrcode';
 import EventEmitter from 'events';
 import path from 'path';
 import fs from 'fs';
+import pkg from 'whatsapp-web.js';
+const { Client, LocalAuth, MessageMedia } = pkg;
 
 const app = express();
 const port = process.env.PORT || 3000;
