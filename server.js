@@ -1034,10 +1034,31 @@ app.use(express.static(path.join(__dirname)))
 
 // Polling endpoint
 app.get('/progress', (req, res) => {
+  let responded = false
+
+  const timeout = setTimeout(() => {
+    if (!responded) {
+      responded = true
+      res.json({ status: 'waiting', message: 'Still waiting for updates...' })
+    }
+  }, 10000) // 10s fallback
+
   progressEmitter.once('update', (data) => {
-    res.json(data)
+    if (!responded) {
+      responded = true
+      clearTimeout(timeout)
+      res.json(data)
+    }
+  })
+
+  req.on('close', () => {
+    if (!responded) {
+      responded = true
+      clearTimeout(timeout)
+    }
   })
 })
+
 
 // Delay helper
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
