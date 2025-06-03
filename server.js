@@ -838,7 +838,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`)
 })
 */
-
+/*
 
 import express from 'express'
 import multer from 'multer'
@@ -1012,3 +1012,160 @@ const PORT = process.env.PORT || 3000
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running at http://localhost:${PORT}`)
 })
+*/
+import express from 'express'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import XLSX from 'xlsx'
+import mime from 'mime-types'
+import QRCode from 'qrcode'
+import EventEmitter from 'events'
+import pkg from 'whatsapp-web.js'
+
+const { Client, LocalAuth, MessageMedia } = pkg
+const __dirname = path.resolve()
+const app = express()
+const upload = multer({ dest: 'uploads/' })
+const progressEmitter = new EventEmitter()
+
+// Serve static files
+app.use(express.static(path.join(__dirname)))
+
+// Polling endpoint
+app.get('/progress', (req, res) => {
+  progressEmitter.once('update', (data) => {
+    res.json(data)
+  })
+})
+
+// Delay helper
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Replace placeholders
+const replacePlaceholders = (template = '', contact, map) => {
+  return Object.entries(map).reduce((msg, [placeholder, col]) => {
+    const value = contact[col] || ''
+    return msg.replace(new RegExp(`{${placeholder}}`, 'g'), value)
+  }, template)
+}
+
+// Ensure image has .jpg
+const ensureImageExtension = (filePath) => {
+  const newFilePath = `${filePath}.jpg`
+  fs.renameSync(filePath, newFilePath)
+  return newFilePath
+}
+
+// Main message sending logic
+app.post('/send-messages', upload.fields([{ name: 'file' }, { name: 'image' }]), async (req, res) => {
+  try {
+    const filePath = req.files?.file?.[0]?.path
+    let imageFile = req.files?.image?.[0]?.path
+    const mobileColumn = req.body.mobile_column
+    const dynamicColumns = req.body.dynamic_columns || ''
+    const messageTemplate = req.body.message || ''
+
+    if (!filePath || !mobileColumn) {
+      return res.status(400).json({ status: 'error', message: 'File and mobile column are required.' })
+    }
+
+    if (imageFile) {
+      imageFile = ensureImageExtension(imageFile)
+    }
+
+    const dynamicMap = dynamicColumns.split(',').reduce((map, pair) => {
+      const [key, val] = pair.split(':').map((s) => s.trim())
+      if (key && val) map[key] = val
+      return map
+    }, {})
+
+    const workbook = XLSX.readFile(filePath)
+    const sheetName = workbook.SheetNames[0]
+    const sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
+
+    const client = new Client({ authStrategy: new LocalAuth() })
+
+    client.on('qr', async (qr) => {
+      const qrImage = await QRCode.toDataURL(qr)
+      progressEmitter.emit('update', { status: 'qr', qrImage })
+    })
+
+    client.on('ready', async () => {
+      progressEmitter.emit('update', { status: 'ready', message: 'WhatsApp client is ready!' })
+
+      for (const [index, contact] of sheet.entries()) {
+        const phoneNumber = `${(contact[mobileColumn] || '').toString().replace(/[^\d]/g, '')}@c.us`
+
+        if (!phoneNumber.includes('@c.us')) {
+          progressEmitter.emit('update', {
+            status: 'error',
+            message: `Invalid phone number at row ${index + 1}`
+          })
+          continue
+        }
+
+        const message = replacePlaceholders(messageTemplate, contact, dynamicMap)
+
+        try {
+          if (imageFile) {
+            const media = MessageMedia.fromFilePath(imageFile)
+            await client.sendMessage(phoneNumber, media, { caption: message || undefined })
+          } else if (message) {
+            await client.sendMessage(phoneNumber, message)
+          } else {
+            progressEmitter.emit('update', {
+              status: 'error',
+              message: `No message or image for row ${index + 1}. Skipping...`
+            })
+            continue
+          }
+
+          progressEmitter.emit('update', {
+            status: 'progress',
+            message: `Message sent to ${contact[mobileColumn]}`
+          })
+        } catch (err) {
+          progressEmitter.emit('update', {
+            status: 'error',
+            message: `Failed to send to ${contact[mobileColumn]}: ${err.message}`
+          })
+        }
+
+        await delay(8000)
+      }
+
+      progressEmitter.emit('update', {
+        status: 'success',
+        message: 'All messages sent successfully!'
+      })
+    })
+
+    client.on('auth_failure', () => {
+      progressEmitter.emit('update', {
+        status: 'error',
+        message: 'Authentication failed. Please try again.'
+      })
+    })
+
+    client.on('disconnected', () => {
+      progressEmitter.emit('update', {
+        status: 'error',
+        message: 'WhatsApp client disconnected.'
+      })
+    })
+
+    client.initialize()
+    res.json({ status: 'processing', message: 'Processing your request. Please wait...' })
+  } catch (err) {
+    console.error('Error:', err)
+    res.status(500).json({ status: 'error', message: 'Internal server error.' })
+  }
+})
+
+const PORT = process.env.PORT || 3000
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running at http://localhost:${PORT}`)
+})
+
+

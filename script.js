@@ -74,21 +74,137 @@
 //       })
 //   })
 
-// Function to apply WhatsApp-like formatting
+// Function to apply WhatsApp-like formatting/*
+// function formatMessage(message) {
+//   console.log('Formatting message:', message) // Debugging statement
+//   return message
+//     .replace(/\*(.*?)\*/g, '<b>$1</b>') // Bold: *text*
+//     .replace(/_(.*?)_/g, '<i>$1</i>') // Italic: _text_
+//     .replace(/~(.*?)~/g, '<s>$1</s>') // Strikethrough: ~text~
+//     .replace(/```(.*?)```/gs, '<pre>$1</pre>') // Monospace: ```text```
+//     .replace(/(?:\r\n|\r|\n)/g, '<br>') // Line breaks
+// }
+
+// // Real-time preview of the message
+// document.getElementById('message').addEventListener('input', function () {
+//   const rawMessage = this.value
+//   console.log('Message input updated:', rawMessage) // Debugging statement
+//   const formattedMessage = formatMessage(rawMessage)
+//   document.getElementById('messagePreview').innerHTML = formattedMessage
+// })
+
+// document.getElementById('image').addEventListener('change', function () {
+//   const file = this.files[0]
+//   const imagePreview = document.getElementById('imagePreview')
+
+//   if (file) {
+//     const reader = new FileReader()
+//     reader.onload = function (e) {
+//       imagePreview.src = e.target.result
+//       imagePreview.style.display = 'block' // Show the image preview
+//     }
+//     reader.readAsDataURL(file)
+//   } else {
+//     imagePreview.style.display = 'none' // Hide the image preview if no file is selected
+//   }
+// })
+
+// let eventSource // Global variable for EventSource
+
+// function listenToProgress() {
+//   if (eventSource) {
+//     console.log('EventSource already active. Reusing existing connection.') // Debugging statement
+//     return
+//   }
+
+//   console.log('Listening for progress updates...') // Debugging statement
+//   eventSource = new EventSource('https://whatsapp-sender-production.up.railway.app/events');
+
+
+//   eventSource.onmessage = (event) => {
+//     const data = JSON.parse(event.data)
+//     console.log('Progress data received:', data) // Debugging statement
+
+//     if (data.status === 'qr') {
+//       document.getElementById(
+//         'status1'
+//       ).innerHTML = `<img src="${data.qrImage}" alt="Scan QR Code" />`
+//     } else {
+//       const statusDiv = document.getElementById('status')
+//       const message = document.createElement('p')
+//       message.innerText = data.message
+
+//       // Append new message to status
+//       statusDiv.appendChild(message)
+
+//       // Limit to the last 10 messages
+//       const messages = statusDiv.getElementsByTagName('p')
+//       if (messages.length > 10) {
+//         statusDiv.removeChild(messages[0])
+//       }
+//     }
+
+//     if (data.status === 'progress' && data.message.includes('Message sent')) {
+//       const counterElement = document.getElementById('counter')
+//       const currentCount = parseInt(counterElement.innerText, 10)
+//       counterElement.innerText = currentCount + 1 // Increment the counter
+//       console.log('Message counter incremented') // Debugging statement
+//     }
+
+//     if (data.status === 'success' || data.status === 'error') {
+//       console.log('Final status received:', data.status) // Debugging statement
+//       eventSource.close() // Close the EventSource connection
+//       eventSource = null // Reset the EventSource for future connections
+//     }
+//   }
+
+//   eventSource.onerror = (error) => {
+//     console.error('Error receiving progress updates:', error) // Debugging statement
+//     eventSource.close()
+//     eventSource = null // Reset the EventSource for future connections
+//   }
+// }
+
+// document
+//   .getElementById('messageForm')
+//   .addEventListener('submit', function (event) {
+//     event.preventDefault()
+
+//     const formData = new FormData(this)
+
+//     console.log('Form submitted. Sending data to server...') // Debugging statement
+//     listenToProgress() // Start listening for progress before the server processes
+
+//     fetch('https://whatsapp-sender-production.up.railway.app/send-messages', {
+//       method: 'POST',
+//       body: formData,
+//     })
+//       .then((response) => {
+//         console.log('Server response status:', response.status) // Debugging statement
+//         return response.json()
+//       })
+//       .then((data) => {
+//         console.log('Response from server:', data) // Debugging statement
+//         if (data.status === 'success') {
+//           console.log('Batch is being processed!') // Debugging statement
+//         }
+//       })
+//       .catch((error) => {
+//         console.error('Error submitting form:', error) // Debugging statement
+//         document.getElementById('status').innerText = 'An error occurred.'
+//       })
+//   })
 function formatMessage(message) {
-  console.log('Formatting message:', message) // Debugging statement
   return message
-    .replace(/\*(.*?)\*/g, '<b>$1</b>') // Bold: *text*
-    .replace(/_(.*?)_/g, '<i>$1</i>') // Italic: _text_
-    .replace(/~(.*?)~/g, '<s>$1</s>') // Strikethrough: ~text~
-    .replace(/```(.*?)```/gs, '<pre>$1</pre>') // Monospace: ```text```
-    .replace(/(?:\r\n|\r|\n)/g, '<br>') // Line breaks
+    .replace(/\*(.*?)\*/g, '<b>$1</b>')
+    .replace(/_(.*?)_/g, '<i>$1</i>')
+    .replace(/~(.*?)~/g, '<s>$1</s>')
+    .replace(/```(.*?)```/gs, '<pre>$1</pre>')
+    .replace(/(?:\r\n|\r|\n)/g, '<br>')
 }
 
-// Real-time preview of the message
 document.getElementById('message').addEventListener('input', function () {
   const rawMessage = this.value
-  console.log('Message input updated:', rawMessage) // Debugging statement
   const formattedMessage = formatMessage(rawMessage)
   document.getElementById('messagePreview').innerHTML = formattedMessage
 })
@@ -101,96 +217,69 @@ document.getElementById('image').addEventListener('change', function () {
     const reader = new FileReader()
     reader.onload = function (e) {
       imagePreview.src = e.target.result
-      imagePreview.style.display = 'block' // Show the image preview
+      imagePreview.style.display = 'block'
     }
     reader.readAsDataURL(file)
   } else {
-    imagePreview.style.display = 'none' // Hide the image preview if no file is selected
+    imagePreview.style.display = 'none'
   }
 })
 
-let eventSource // Global variable for EventSource
+function pollProgress() {
+  fetch('/progress')
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.status === 'qr') {
+        document.getElementById('status1').innerHTML = `<img src="${data.qrImage}" alt="Scan QR Code" />`
+      } else {
+        const statusDiv = document.getElementById('status')
+        const message = document.createElement('p')
+        message.innerText = data.message
+        statusDiv.appendChild(message)
 
-function listenToProgress() {
-  if (eventSource) {
-    console.log('EventSource already active. Reusing existing connection.') // Debugging statement
-    return
-  }
-
-  console.log('Listening for progress updates...') // Debugging statement
-  eventSource = new EventSource('https://whatsapp-sender-production.up.railway.app/events');
-
-
-  eventSource.onmessage = (event) => {
-    const data = JSON.parse(event.data)
-    console.log('Progress data received:', data) // Debugging statement
-
-    if (data.status === 'qr') {
-      document.getElementById(
-        'status1'
-      ).innerHTML = `<img src="${data.qrImage}" alt="Scan QR Code" />`
-    } else {
-      const statusDiv = document.getElementById('status')
-      const message = document.createElement('p')
-      message.innerText = data.message
-
-      // Append new message to status
-      statusDiv.appendChild(message)
-
-      // Limit to the last 10 messages
-      const messages = statusDiv.getElementsByTagName('p')
-      if (messages.length > 10) {
-        statusDiv.removeChild(messages[0])
+        const messages = statusDiv.getElementsByTagName('p')
+        if (messages.length > 10) {
+          statusDiv.removeChild(messages[0])
+        }
       }
-    }
 
-    if (data.status === 'progress' && data.message.includes('Message sent')) {
-      const counterElement = document.getElementById('counter')
-      const currentCount = parseInt(counterElement.innerText, 10)
-      counterElement.innerText = currentCount + 1 // Increment the counter
-      console.log('Message counter incremented') // Debugging statement
-    }
+      if (data.status === 'progress' && data.message.includes('Message sent')) {
+        const counterElement = document.getElementById('counter')
+        const currentCount = parseInt(counterElement.innerText, 10)
+        counterElement.innerText = currentCount + 1
+      }
 
-    if (data.status === 'success' || data.status === 'error') {
-      console.log('Final status received:', data.status) // Debugging statement
-      eventSource.close() // Close the EventSource connection
-      eventSource = null // Reset the EventSource for future connections
-    }
-  }
-
-  eventSource.onerror = (error) => {
-    console.error('Error receiving progress updates:', error) // Debugging statement
-    eventSource.close()
-    eventSource = null // Reset the EventSource for future connections
-  }
+      if (data.status !== 'success' && data.status !== 'error') {
+        setTimeout(pollProgress, 2000)
+      }
+    })
+    .catch((err) => console.error('Polling error:', err))
 }
 
-document
-  .getElementById('messageForm')
-  .addEventListener('submit', function (event) {
-    event.preventDefault()
+document.getElementById('messageForm').addEventListener('submit', function (event) {
+  event.preventDefault()
+  const formData = new FormData(this)
 
-    const formData = new FormData(this)
+  document.getElementById('status').innerText = 'Submitting...'
+  console.log('Form submitted. Sending data to server...')
 
-    console.log('Form submitted. Sending data to server...') // Debugging statement
-    listenToProgress() // Start listening for progress before the server processes
-
-    fetch('https://whatsapp-sender-production.up.railway.app/send-messages', {
-      method: 'POST',
-      body: formData,
-    })
-      .then((response) => {
-        console.log('Server response status:', response.status) // Debugging statement
-        return response.json()
-      })
-      .then((data) => {
-        console.log('Response from server:', data) // Debugging statement
-        if (data.status === 'success') {
-          console.log('Batch is being processed!') // Debugging statement
-        }
-      })
-      .catch((error) => {
-        console.error('Error submitting form:', error) // Debugging statement
-        document.getElementById('status').innerText = 'An error occurred.'
-      })
+  fetch('/send-messages', {
+    method: 'POST',
+    body: formData,
   })
+    .then((response) => {
+      console.log('Server response status:', response.status)
+      return response.json()
+    })
+    .then((data) => {
+      console.log('Response from server:', data)
+      document.getElementById('status').innerText = data.message
+      if (data.status === 'processing') {
+        pollProgress() // Start polling for updates
+      }
+    })
+    .catch((error) => {
+      console.error('Error submitting form:', error)
+      document.getElementById('status').innerText = 'An error occurred.'
+    })
+})
