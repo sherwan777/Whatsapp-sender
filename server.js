@@ -848,7 +848,6 @@ import XLSX from 'xlsx'
 import mime from 'mime-types'
 import QRCode from 'qrcode'
 import EventEmitter from 'events'
-import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js'
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth, MessageMedia } = pkg;
 
