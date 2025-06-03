@@ -175,10 +175,9 @@ document
     listenToProgress() // Start listening for progress before the server processes
 
     fetch('https://whatsapp-sender-production.up.railway.app/send-messages', {
-  method: 'POST',
-  body: formData,
-})
-
+      method: 'POST',
+      body: formData,
+    })
       .then((response) => {
         console.log('Server response status:', response.status) // Debugging statement
         return response.json()
