@@ -404,7 +404,7 @@
 // app.listen(3000, '0.0.0.0', () => {
 //   console.log('Server running on http://localhost:3000')
 // })
-
+/*
 import express from 'express'
 import multer from 'multer'
 import path from 'path'
@@ -659,34 +659,13 @@ app.post(
     }
   }
 )
-app.get('/', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  const onUpdate = (data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-    if (data.status === 'success' || data.status === 'error') {
-      progressEmitter.off('update', onUpdate); // Clean up
-      res.end(); // Close connection
-    }
-  };
-
-  progressEmitter.on('update', onUpdate);
-
-  // Clean up on client disconnect
-  req.on('close', () => {
-    progressEmitter.off('update', onUpdate);
-    res.end();
-  });
-});
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
-
+*/
 // server.js
 /*import express from 'express'
 import multer from 'multer'
@@ -859,3 +838,176 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`)
 })
 */
+
+
+import express from 'express'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import XLSX from 'xlsx'
+import mime from 'mime-types'
+import QRCode from 'qrcode'
+import EventEmitter from 'events'
+import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js'
+
+const __dirname = path.resolve()
+const app = express()
+const upload = multer({ dest: 'uploads/' })
+const progressEmitter = new EventEmitter()
+
+// Serve static files (index.html, script.js, styles.css)
+app.use(express.static(path.join(__dirname)))
+
+// SSE endpoint
+app.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+
+  const sendUpdate = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+    if (data.status === 'success' || data.status === 'error') {
+      progressEmitter.off('update', sendUpdate)
+      res.end()
+    }
+  }
+
+  progressEmitter.on('update', sendUpdate)
+
+  req.on('close', () => {
+    progressEmitter.off('update', sendUpdate)
+    res.end()
+  })
+})
+
+// Helper delay
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Helper to replace {placeholders}
+const replacePlaceholders = (template = '', contact, dynamicMap) => {
+  return Object.entries(dynamicMap).reduce((msg, [placeholder, column]) => {
+    const value = contact[column] || ''
+    return msg.replace(new RegExp(`{${placeholder}}`, 'g'), value)
+  }, template)
+}
+
+// Ensure file ends with .jpg
+const ensureImageExtension = (filePath) => {
+  const newFilePath = `${filePath}.jpg`
+  fs.renameSync(filePath, newFilePath)
+  return newFilePath
+}
+
+// Handle form POST
+app.post('/send-messages', upload.fields([{ name: 'file' }, { name: 'image' }]), async (req, res) => {
+  try {
+    const filePath = req.files?.file?.[0]?.path
+    let imageFile = req.files?.image?.[0]?.path
+    const mobileColumn = req.body.mobile_column
+    const dynamicColumns = req.body.dynamic_columns || ''
+    const messageTemplate = req.body.message || ''
+
+    if (!filePath || !mobileColumn) {
+      return res.status(400).json({ status: 'error', message: 'File and mobile column are required.' })
+    }
+
+    if (imageFile) {
+      imageFile = ensureImageExtension(imageFile)
+    }
+
+    const dynamicMap = dynamicColumns.split(',').reduce((map, pair) => {
+      const [key, val] = pair.split(':').map((s) => s.trim())
+      if (key && val) map[key] = val
+      return map
+    }, {})
+
+    const workbook = XLSX.readFile(filePath)
+    const sheetName = workbook.SheetNames[0]
+    const sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
+
+    const client = new Client({ authStrategy: new LocalAuth() })
+
+    client.on('qr', async (qr) => {
+      const qrImage = await QRCode.toDataURL(qr)
+      progressEmitter.emit('update', { status: 'qr', qrImage })
+    })
+
+    client.on('ready', async () => {
+      progressEmitter.emit('update', { status: 'ready', message: 'WhatsApp client is ready!' })
+
+      for (const [index, contact] of sheet.entries()) {
+        const raw = contact[mobileColumn] || ''
+        const phoneNumber = `${raw.toString().replace(/[^\d]/g, '')}@c.us`
+
+        if (!phoneNumber.includes('@c.us')) {
+          progressEmitter.emit('update', {
+            status: 'error',
+            message: `Invalid phone number at row ${index + 1}`
+          })
+          continue
+        }
+
+        const message = replacePlaceholders(messageTemplate, contact, dynamicMap)
+
+        try {
+          if (imageFile) {
+            const media = MessageMedia.fromFilePath(imageFile)
+            await client.sendMessage(phoneNumber, media, { caption: message || undefined })
+          } else if (message) {
+            await client.sendMessage(phoneNumber, message)
+          } else {
+            progressEmitter.emit('update', {
+              status: 'error',
+              message: `No message or image for row ${index + 1}. Skipping...`
+            })
+            continue
+          }
+
+          progressEmitter.emit('update', {
+            status: 'progress',
+            message: `Message sent to ${contact[mobileColumn]}`
+          })
+        } catch (err) {
+          progressEmitter.emit('update', {
+            status: 'error',
+            message: `Failed to send to ${contact[mobileColumn]}: ${err.message}`
+          })
+        }
+
+        await delay(8000)
+      }
+
+      progressEmitter.emit('update', {
+        status: 'success',
+        message: 'All messages sent successfully!'
+      })
+    })
+
+    client.on('auth_failure', () => {
+      progressEmitter.emit('update', {
+        status: 'error',
+        message: 'Authentication failed. Please try again.'
+      })
+    })
+
+    client.on('disconnected', () => {
+      progressEmitter.emit('update', {
+        status: 'error',
+        message: 'WhatsApp client disconnected.'
+      })
+    })
+
+    client.initialize()
+    res.json({ status: 'processing', message: 'Processing your request. Please wait...' })
+
+  } catch (error) {
+    console.error('Error:', error)
+    res.status(500).json({ status: 'error', message: 'Internal server error.' })
+  }
+})
+
+// Start the server
+const PORT = process.env.PORT || 3000
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running at http://localhost:${PORT}`)
+})
