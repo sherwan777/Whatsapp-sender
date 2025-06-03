@@ -659,6 +659,27 @@ app.post(
     }
   }
 )
+app.get('/', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const onUpdate = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (data.status === 'success' || data.status === 'error') {
+      progressEmitter.off('update', onUpdate); // Clean up
+      res.end(); // Close connection
+    }
+  };
+
+  progressEmitter.on('update', onUpdate);
+
+  // Clean up on client disconnect
+  req.on('close', () => {
+    progressEmitter.off('update', onUpdate);
+    res.end();
+  });
+});
 
 // Start the server
 const PORT = process.env.PORT || 3000;
