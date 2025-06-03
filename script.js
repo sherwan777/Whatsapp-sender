@@ -118,7 +118,8 @@ function listenToProgress() {
   }
 
   console.log('Listening for progress updates...') // Debugging statement
-  eventSource = new EventSource('https://whatsapp-sender-production.up.railway.app/')
+  eventSource = new EventSource('https://whatsapp-sender-production.up.railway.app/events');
+
 
   eventSource.onmessage = (event) => {
     const data = JSON.parse(event.data)
